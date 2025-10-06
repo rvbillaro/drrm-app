@@ -1,0 +1,80 @@
+{
+  "expo": {
+    "name": "Agap PH",
+    "slug": "agaph",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon-2.png",
+    "scheme": "drrm-app",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-light.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#fbfbfb"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0855752d-45c5-49df-98cb-301c8fe9d139"
+      }
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  },
+  "ios": {
+    "supportsTablet": true,
+    "icon": "./assets/images/icon-1.png",
+    "bundleIdentifier": "com.rivab.agaph",
+    "infoPlist": {
+      "ITSAppUsesNonExemptEncryption": false,
+      "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show your current position on the map."
+    }
+  },
+  "android": {
+    "adaptiveIcon": {
+      "foregroundImage": "./assets/images/icon-2.png",
+      "backgroundColor": "#fbfbfb"
+    },
+    "config": {
+      "googleMaps": {
+        "apiKey": "AIzaSyBTLhp6b-3HXl4UybmnHiX3CyWfC5iz6_o"
+      }
+    },
+    "edgeToEdgeEnabled": true,
+    "package": "com.rivab.agaph"
+  },
+  "web": {
+    "bundler": "metro",
+    "output": "static",
+    "favicon": "./assets/images/icon.png"
+  },
+  "plugins": [
+    "expo-router",
+    [
+      "expo-splash-screen",
+      {
+        "backgroundColor": "#fbfbfb",
+        "image": "./assets/images/splash-light.png",
+        "dark": {
+          "image": "./assets/images/splash-dark.png",
+          "backgroundColor": "#151718"
+        },
+        "imageWidth": 200
+      },
+      "expo-location",
+      {
+        "locationAlwaysAndWhenInUsePermission": "Allow Agap PH to use your location."
+      }
+    ]
+  ],
+  "experiments": {
+    "typedRoutes": true
+  },
+  "extra": {
+    "router": {},
+    "eas": {
+      "projectId": "0855752d-45c5-49df-98cb-301c8fe9d139"
+    }
+  }
+}
