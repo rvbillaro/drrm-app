@@ -1,36 +1,42 @@
 import React, { useContext } from "react";
 import { StyleSheet, View } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import MapViewStyle from 'src/components/map/MapViewStyle.json';
+import MapViewStyle from "src/components/map/MapViewStyle.json";
 import { UserLocation } from "./UserLocation";
 
 export default function MapViewComponent() {
   const userLocationContext = useContext(UserLocation);
-  if (!userLocationContext) return null; 
-  const { location, setLocation } = userLocationContext;
-  
-  return location?.coords?.latitude ? (
+
+  if (!userLocationContext) return null;
+  const { location } = userLocationContext;
+
+  if (!location?.coords?.latitude) return null;
+
+  return (
     <View style={styles.container}>
-      <MapView 
-        style={styles.map} 
+      <MapView
+        style={styles.map}
         provider={PROVIDER_GOOGLE}
         customMapStyle={MapViewStyle}
         region={{
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           latitudeDelta: 0.0422,
-          longitudeDelta: 0.0421
+          longitudeDelta: 0.0421,
         }}
-        >
-          <Marker
-            coordinate={{
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude
-            }}
-          />
+        showsUserLocation
+        showsMyLocationButton
+      >
+        <Marker
+          coordinate={{
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          }}
+          title="You are here"
+        />
       </MapView>
     </View>
-  ) : null;
+  );
 }
 
 const styles = StyleSheet.create({
@@ -38,7 +44,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   map: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
 });

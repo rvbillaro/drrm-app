@@ -32,14 +32,14 @@ export default function MenuGrid({ scrollEnabled = false }: MenuGridProps) {
       icon: 'call',
       label: 'Hotline',
       library: 'Ionicons',
-      onPress: () => console.log('Navigate to Hotline'),
+      onPress: () => router.push('/screens/hotlines')
     },
     {
       id: '2',
       icon: 'calendar',
       label: 'Calendar',
       library: 'Ionicons',
-      onPress: () => console.log('Navigate to Calendar'),
+      onPress: () => router.push('/screens/calendar')
     },
     {
       id: '3',
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 15,
     shadowColor: 'black',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 2 },
     shadowRadius: 10,
     shadowOpacity: 0.1,
     ...Platform.select({

@@ -1,25 +1,28 @@
-import { Alert, fetchAlerts } from '@/src/data/alertsData';
+import { Alert, fetchRecentAlerts } from '@/src/data/alertsData';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function AllAlertsScreen() {
-  const router = useRouter();
+interface AlertsCardProps {
+  limit?: number;
+  showViewAll?: boolean;
+  onViewAll?: () => void;
+}
+
+export default function AlertsCard({ limit = 3, showViewAll = false, onViewAll }: AlertsCardProps) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadAlerts();
-  }, []);
+  }, [limit]);
 
   const loadAlerts = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchAlerts();
+      const data = await fetchRecentAlerts(limit);
       setAlerts(data);
     } catch (err) {
       setError('Failed to load alerts');
@@ -27,12 +30,6 @@ export default function AllAlertsScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadAlerts();
-    setRefreshing(false);
   };
 
   const getAlertStyle = (type: Alert['type']) => {
@@ -90,7 +87,7 @@ export default function AllAlertsScreen() {
             )}
           </View>
           
-          <Text style={styles.alertMessage}>
+          <Text style={styles.alertMessage} numberOfLines={2}>
             {item.message}
           </Text>
           
@@ -100,54 +97,67 @@ export default function AllAlertsScreen() {
     );
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.headerBar}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1A202C" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Alerts</Text>
-        <View style={styles.placeholder} />
-      </View>
-
-      {/* Content */}
-      {loading ? (
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Ionicons name="notifications" size={24} color="#1A202C" />
+            <Text style={styles.headerTitle}>Recent Alerts</Text>
+          </View>
+        </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Loading alerts...</Text>
         </View>
-      ) : error ? (
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Ionicons name="notifications" size={24} color="#1A202C" />
+            <Text style={styles.headerTitle}>Recent Alerts</Text>
+          </View>
+        </View>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#FF6B6B" />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadAlerts}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Ionicons name="notifications" size={24} color="#1A202C" />
+          <Text style={styles.headerTitle}>Recent Alerts</Text>
+        </View>
+        {showViewAll && (
+          <TouchableOpacity onPress={onViewAll}>
+            <Text style={styles.viewAllText}>View All</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {alerts.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="notifications-off-outline" size={48} color="#A0AEC0" />
+          <Text style={styles.emptyText}>No alerts at this time</Text>
         </View>
       ) : (
         <FlatList
           data={alerts}
           renderItem={renderAlert}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          scrollEnabled={false}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#4A90E2']}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="notifications-off-outline" size={64} color="#A0AEC0" />
-              <Text style={styles.emptyText}>No alerts available</Text>
-            </View>
-          }
         />
       )}
     </View>
@@ -157,75 +167,60 @@ export default function AllAlertsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBFBFB',
   },
-  headerBar: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  backButton: {
-    padding: 4,
+    gap: 8,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1A202C',
   },
-  placeholder: {
-    width: 32,
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4A90E2',
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 40,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: '#718096',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    padding: 20,
     alignItems: 'center',
-    padding: 40,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#FF6B6B',
-    marginTop: 16,
-    marginBottom: 24,
-    textAlign: 'center',
+    marginBottom: 12,
   },
   retryButton: {
     backgroundColor: '#4A90E2',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 8,
   },
   retryText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 16,
   },
   emptyContainer: {
-    padding: 60,
+    padding: 40,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#A0AEC0',
-    marginTop: 16,
-  },
-  listContent: {
-    padding: 20,
+    marginTop: 12,
   },
   alertCard: {
     flexDirection: 'row',

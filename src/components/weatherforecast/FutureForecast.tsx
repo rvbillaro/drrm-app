@@ -1,5 +1,5 @@
-import React from 'react';
-import { Text, View } from 'react-native';
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
 
 interface WeatherData {
   daily: {
@@ -23,40 +23,40 @@ const getWeatherIcon = (code: number) => {
   if (code >= 61 && code <= 65) return "🌧️";
   if (code >= 66 && code <= 67) return "🌨️";
   if (code >= 71 && code <= 75) return "❄️";
-  if (code >= 77 && code <= 77) return "❄️";
+  if (code === 77) return "❄️";
   if (code >= 80 && code <= 82) return "🌧️";
   if (code >= 85 && code <= 86) return "🌨️";
-  if (code >= 95 && code <= 95) return "⛈️";
-  if (code >= 96 && code <= 99) return "⛈️";
+  if (code >= 95 && code <= 99) return "⛈️";
   return "🌤️";
 };
 
 export default function FutureForecast({ weatherData }: FutureForecastProps) {
   return (
-    <View className="bg-white rounded-3xl p-5 shadow-lg mx-6 mb-6">
-      <Text className="text-xl font-semibold text-gray-800 mb-4">
-        7-Day Forecast
-      </Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>7-Day Forecast</Text>
       {Array.from({ length: 7 }).map((_, index) => (
         <View
           key={index}
-          className="flex-row justify-between items-center py-3 border-b border-gray-100 last:border-b-0"
+          style={[
+            styles.row,
+            index === 6 && { borderBottomWidth: 0 }, // Remove border for last item
+          ]}
         >
-          <Text className="text-gray-600 text-base w-20">
+          <Text style={[styles.text, styles.dayText]}>
             {index === 0
               ? "Today"
               : index === 1
               ? "Tomorrow"
               : `Day ${index + 1}`}
           </Text>
-          <Text className="text-3xl">
+          <Text style={styles.icon}>
             {getWeatherIcon(weatherData.daily.weather_code[index])}
           </Text>
-          <Text className="text-gray-600 text-base flex-1 text-center">
+          <Text style={[styles.text, styles.tempRange]}>
             {Math.round(weatherData.daily.temperature_2m_max[index])}° /{" "}
             {Math.round(weatherData.daily.temperature_2m_min[index])}°
           </Text>
-          <Text className="text-gray-800 font-bold text-base w-12 text-right">
+          <Text style={[styles.text, styles.maxTemp]}>
             {Math.round(weatherData.daily.temperature_2m_max[index])}°
           </Text>
         </View>
@@ -64,3 +64,53 @@ export default function FutureForecast({ weatherData }: FutureForecastProps) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
+    marginHorizontal: 24,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1f2937", // gray-800
+    marginBottom: 16,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderColor: "#f3f4f6", // gray-100
+  },
+  text: {
+    color: "#4b5563", // gray-600
+    fontSize: 16,
+  },
+  dayText: {
+    width: 80,
+  },
+  icon: {
+    fontSize: 28,
+  },
+  tempRange: {
+    flex: 1,
+    textAlign: "center",
+  },
+  maxTemp: {
+    color: "#1f2937", // gray-800
+    fontWeight: "700",
+    fontSize: 16,
+    width: 48,
+    textAlign: "right",
+  },
+});
