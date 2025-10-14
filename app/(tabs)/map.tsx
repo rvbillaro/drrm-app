@@ -6,7 +6,7 @@ import MapView from "../../src/components/map/MapView";
 import { UserLocation } from "../../src/components/map/UserLocation";
 import SearchBar from "../../src/components/ui/SearchBar";
 
-export default function Home() {
+export default function Map() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const router = useRouter();

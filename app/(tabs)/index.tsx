@@ -7,7 +7,6 @@ import Header from "../../src/components/navigation/header";
 
 export default function Home() {
   const router = useRouter();
-
   const handleViewAllAlerts = () => {
     router.push('/screens/alerts');
   };
@@ -21,8 +20,7 @@ export default function Home() {
         <View>
           <MenuGrid />
         </View>
-
-        {/* Alerts Section */}
+        
         <View style={styles.alertsCard}>
           <AlertsCard
             limit={3} 

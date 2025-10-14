@@ -38,8 +38,21 @@ const SignUpScreen: React.FC = () => {
       return;
     }
     
+    // TODO: Send data to backend API
+    const userData = {
+      fullName,
+      email,
+      phone,
+      password,
+    };
+    console.log('Creating account:', userData);
+    
+    // Navigate to location onboarding after successful signup
     Alert.alert('Success', 'Account created successfully!', [
-      { text: 'OK', onPress: () => router.replace('/(tabs)') }
+      { 
+        text: 'OK', 
+        onPress: () => router.replace('/onboarding/location') 
+      }
     ]);
   };
 

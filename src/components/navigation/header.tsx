@@ -9,7 +9,7 @@ export default function Header() {
         style={styles.logo}
       />
       <TouchableOpacity 
-        onPress={() => router.push("/")}
+        onPress={() => router.push("/screens/profile")}
       >
         <FontAwesome5 name="user-circle" size={30} color="#4a90e2" />
       </TouchableOpacity>
