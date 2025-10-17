@@ -1,6 +1,7 @@
+import 'leaflet/dist/leaflet.css';
 import React, { useContext, useEffect, useState } from "react";
-import { View } from "react-native";
-import MapView, { Marker, Polygon } from "react-native-maps";
+import { MapContainer, Marker, Polygon, Popup, TileLayer } from 'react-leaflet';
+import { Platform, View } from "react-native";
 import { fetchEvacuationAreas, fetchHazardAreas, fetchIncidents } from "../../services/mapData";
 import { EvacuationArea, HazardArea, Incident } from "../../types";
 import { UserLocation } from "./UserLocation";
@@ -53,37 +54,42 @@ export default function MapViewComponent() {
     }
   };
 
+  if (Platform.OS !== 'web') {
+    return (
+      <View style={{ flex: 1 }}>
+        <div>Map not available on mobile</div>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1 }}>
-      <MapView
-        style={{ flex: 1 }}
-        initialRegion={{
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        }}
-        showsUserLocation={true}
-        showsMyLocationButton={true}
+      <MapContainer
+        center={[location.coords.latitude, location.coords.longitude]}
+        zoom={13}
+        style={{ height: '100%', width: '100%' }}
       >
-        {/* User Location Marker */}
-        <Marker
-          coordinate={{
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          }}
-          title="Your Location"
-          pinColor="blue"
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
+
+        {/* User Location Marker */}
+        <Marker position={[location.coords.latitude, location.coords.longitude]}>
+          <Popup>Your Location</Popup>
+        </Marker>
 
         {/* Evacuation Areas */}
         {evacuationAreas.map((area) => (
           <Polygon
             key={area.id}
-            coordinates={area.coordinates}
-            strokeColor="blue"
-            fillColor="rgba(0, 0, 255, 0.2)"
-            strokeWidth={2}
+            positions={area.coordinates.map(coord => [coord.latitude, coord.longitude])}
+            pathOptions={{
+              color: 'blue',
+              fillColor: 'blue',
+              fillOpacity: 0.2,
+              weight: 2,
+            }}
           />
         ))}
 
@@ -91,10 +97,13 @@ export default function MapViewComponent() {
         {hazardAreas.map((area) => (
           <Polygon
             key={area.id}
-            coordinates={area.coordinates}
-            strokeColor={getHazardColor(area.severity)}
-            fillColor={getHazardColor(area.severity)}
-            strokeWidth={2}
+            positions={area.coordinates.map(coord => [coord.latitude, coord.longitude])}
+            pathOptions={{
+              color: getHazardColor(area.severity),
+              fillColor: getHazardColor(area.severity),
+              fillOpacity: 0.3,
+              weight: 2,
+            }}
           />
         ))}
 
@@ -102,16 +111,18 @@ export default function MapViewComponent() {
         {incidents.map((incident) => (
           <Marker
             key={incident.id}
-            coordinate={{
-              latitude: incident.location.latitude,
-              longitude: incident.location.longitude,
-            }}
-            title={incident.type}
-            description={incident.description}
-            pinColor={getIncidentColor(incident.status)}
-          />
+            position={[incident.location.latitude, incident.location.longitude]}
+          >
+            <Popup>
+              <div>
+                <strong>{incident.type}</strong>
+                <br />
+                {incident.description}
+              </div>
+            </Popup>
+          </Marker>
         ))}
-      </MapView>
+      </MapContainer>
     </View>
   );
 }
