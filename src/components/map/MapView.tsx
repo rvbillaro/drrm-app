@@ -1,128 +1,115 @@
-import 'leaflet/dist/leaflet.css';
-import React, { useContext, useEffect, useState } from "react";
-import { MapContainer, Marker, Polygon, Popup, TileLayer } from 'react-leaflet';
-import { Platform, View } from "react-native";
-import { fetchEvacuationAreas, fetchHazardAreas, fetchIncidents } from "../../services/mapData";
-import { EvacuationArea, HazardArea, Incident } from "../../types";
+import React, { useContext } from "react";
+import { Platform, StyleSheet, Text, View } from "react-native";
+import { WebView } from "react-native-webview";
 import { UserLocation } from "./UserLocation";
+
+let MapContainer: any, TileLayer: any, Marker: any;
+
+if (Platform.OS === 'web') {
+  const leaflet = require('react-leaflet');
+  MapContainer = leaflet.MapContainer;
+  TileLayer = leaflet.TileLayer;
+  Marker = leaflet.Marker;
+}
+
+// Load Leaflet CSS on web
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  // Check if Leaflet CSS is already loaded
+  if (!document.getElementById('leaflet-css')) {
+    const link = document.createElement('link');
+    link.id = 'leaflet-css';
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+    link.crossOrigin = '';
+    document.head.appendChild(link);
+  }
+}
 
 export default function MapViewComponent() {
   const userLocationContext = useContext(UserLocation);
-  const [evacuationAreas, setEvacuationAreas] = useState<EvacuationArea[]>([]);
-  const [hazardAreas, setHazardAreas] = useState<HazardArea[]>([]);
-  const [incidents, setIncidents] = useState<Incident[]>([]);
+  if (!userLocationContext) {
+    console.log('No user location context');
+    return null;
+  }
+  const { location, setLocation } = userLocationContext;
 
-  if (!userLocationContext) return null;
-  const { location } = userLocationContext;
+  console.log('Current location:', location);
 
-  useEffect(() => {
-    const loadMapData = async () => {
-      try {
-        const [evacAreas, hazAreas, inc] = await Promise.all([
-          fetchEvacuationAreas(),
-          fetchHazardAreas(),
-          fetchIncidents(),
-        ]);
-        setEvacuationAreas(evacAreas);
-        setHazardAreas(hazAreas);
-        setIncidents(inc);
-      } catch (error) {
-        console.error('Error loading map data:', error);
-      }
-    };
-
-    loadMapData();
-  }, []);
-
-  if (!location?.coords?.latitude || !location?.coords?.longitude) return null;
-
-  const getHazardColor = (severity: string) => {
-    switch (severity) {
-      case 'high': return 'rgba(255, 0, 0, 0.3)';
-      case 'medium': return 'rgba(255, 165, 0, 0.3)';
-      case 'low': return 'rgba(255, 255, 0, 0.3)';
-      default: return 'rgba(128, 128, 128, 0.3)';
-    }
-  };
-
-  const getIncidentColor = (status: string) => {
-    switch (status) {
-      case 'reported': return 'red';
-      case 'responding': return 'orange';
-      case 'resolved': return 'green';
-      default: return 'gray';
-    }
-  };
-
-  if (Platform.OS !== 'web') {
+  if (!location?.coords?.latitude || !location?.coords?.longitude) {
     return (
-      <View style={{ flex: 1 }}>
-        <div>Map not available on mobile</div>
+      <View style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Loading location...</Text>
+        </View>
       </View>
     );
   }
 
-  return (
-    <View style={{ flex: 1 }}>
-      <MapContainer
-        center={[location.coords.latitude, location.coords.longitude]}
-        zoom={13}
-        style={{ height: '100%', width: '100%' }}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-
-        {/* User Location Marker */}
-        <Marker position={[location.coords.latitude, location.coords.longitude]}>
-          <Popup>Your Location</Popup>
-        </Marker>
-
-        {/* Evacuation Areas */}
-        {evacuationAreas.map((area) => (
-          <Polygon
-            key={area.id}
-            positions={area.coordinates.map(coord => [coord.latitude, coord.longitude])}
-            pathOptions={{
-              color: 'blue',
-              fillColor: 'blue',
-              fillOpacity: 0.2,
-              weight: 2,
-            }}
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.container}>
+        <MapContainer
+          center={[location.coords.latitude, location.coords.longitude]}
+          zoom={14}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={false}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
-        ))}
+          <Marker position={[location.coords.latitude, location.coords.longitude]} />
+        </MapContainer>
+      </View>
+    );
+  } else {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin="" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+          crossorigin=""></script>
+        <style>
+          body { margin: 0; padding: 0; }
+          #map { height: 100vh; width: 100vw; }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script>
+          var map = L.map('map', { zoomControl: false }).setView([${location.coords.latitude}, ${location.coords.longitude}], 14);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }).addTo(map);
+          L.marker([${location.coords.latitude}, ${location.coords.longitude}]).addTo(map);
+        </script>
+      </body>
+      </html>
+    `;
 
-        {/* Hazard Areas */}
-        {hazardAreas.map((area) => (
-          <Polygon
-            key={area.id}
-            positions={area.coordinates.map(coord => [coord.latitude, coord.longitude])}
-            pathOptions={{
-              color: getHazardColor(area.severity),
-              fillColor: getHazardColor(area.severity),
-              fillOpacity: 0.3,
-              weight: 2,
-            }}
-          />
-        ))}
-
-        {/* Incidents */}
-        {incidents.map((incident) => (
-          <Marker
-            key={incident.id}
-            position={[incident.location.latitude, incident.location.longitude]}
-          >
-            <Popup>
-              <div>
-                <strong>{incident.type}</strong>
-                <br />
-                {incident.description}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
-    </View>
-  );
+    return (
+      <WebView
+        style={styles.map}
+        source={{ html: htmlContent }}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+      />
+    );
+  }
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+});
