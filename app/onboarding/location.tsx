@@ -6,22 +6,18 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-
-export interface UserAddress {
-  fullAddress: string;
-  barangay?: string;
-  city: string;
-  latitude: number;
-  longitude: number;
-  zone?: 'north' | 'south';
-}
+import { CALOOCAN_BARANGAYS } from '../../src/constants/barangays';
+import { saveUserAddress } from '../../src/services/userService';
+import { UserAddress } from '../../src/types';
 
 export default function LocationOnboarding() {
   const router = useRouter();
@@ -32,6 +28,9 @@ export default function LocationOnboarding() {
   });
   const [selectedZone, setSelectedZone] = useState<'north' | 'south' | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [showBarangayDropdown, setShowBarangayDropdown] = useState(false);
 
   // ✅ Ask for location permission on mount
   useEffect(() => {
@@ -50,7 +49,56 @@ export default function LocationOnboarding() {
     })();
   }, []);
 
-  const handleComplete = () => {
+  const getCurrentLocation = async () => {
+    if (!hasPermission) {
+      Alert.alert('Permission Required', 'Please enable location permission to use the map.');
+      return;
+    }
+
+    try {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      setCurrentLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      setShowMap(true);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to get current location.');
+      console.error(error);
+    }
+  };
+
+  const handleMapPress = (event: any) => {
+    const { coordinate } = event.nativeEvent;
+    setCurrentLocation(coordinate);
+  };
+
+  const confirmLocation = async () => {
+    if (!currentLocation) return;
+
+    try {
+      const geocode = await Location.reverseGeocodeAsync(currentLocation);
+      if (geocode.length > 0) {
+        const address = geocode[0];
+        const fullAddress = `${address.street || ''} ${address.name || ''}`.trim();
+        const city = address.city || address.region || 'Caloocan';
+
+        setManualInput(prev => ({
+          ...prev,
+          fullAddress: fullAddress || prev.fullAddress,
+          city: city,
+        }));
+      }
+    } catch (error) {
+      console.error('Geocoding failed:', error);
+    }
+
+    setShowMap(false);
+  };
+
+  const handleComplete = async () => {
     if (!manualInput.fullAddress || !manualInput.city) {
       Alert.alert('Required', 'Please fill in your full address and city.');
       return;
@@ -63,17 +111,18 @@ export default function LocationOnboarding() {
 
     const locationData: UserAddress = {
       ...manualInput,
-      latitude: 0,
-      longitude: 0,
+      latitude: currentLocation?.latitude || 0,
+      longitude: currentLocation?.longitude || 0,
       zone: selectedZone,
     };
 
     console.log('✅ Saving user address:', locationData);
+    await saveUserAddress(locationData);
     router.replace('/(tabs)');
   };
 
   return (
-    <KeyboardAvoidingView>
+    <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.iconContainer}>
           <Ionicons name="location" size={80} color="#4A90E2" />
@@ -84,13 +133,13 @@ export default function LocationOnboarding() {
           Please provide your address details to receive area-specific alerts.
         </Text>
 
-        {/* Full Address */}
+        {/* Street/House Number */}
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Full Address</Text>
+          <Text style={styles.label}>Street/House Number</Text>
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.input}
-              placeholder="Enter your full address"
+              placeholder="Enter your street/house number"
               placeholderTextColor="#A0AEC0"
               value={manualInput.fullAddress}
               onChangeText={(text) =>
@@ -100,21 +149,75 @@ export default function LocationOnboarding() {
           </View>
         </View>
 
-        {/* Barangay */}
+        {/* Barangay Dropdown */}
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Barangay</Text>
-          <View style={styles.inputWrapper}>
+          <TouchableOpacity
+            style={styles.inputWrapper}
+            onPress={() => setShowBarangayDropdown(true)}
+            activeOpacity={0.7}
+          >
             <TextInput
               style={styles.input}
-              placeholder="Enter your barangay"
+              placeholder="Select your barangay"
               placeholderTextColor="#A0AEC0"
               value={manualInput.barangay}
-              onChangeText={(text) =>
-                setManualInput((prev) => ({ ...prev, barangay: text }))
-              }
+              editable={false}
             />
-          </View>
+            <Ionicons name="chevron-down" size={20} color="#A0AEC0" />
+          </TouchableOpacity>
         </View>
+
+        {/* Barangay Dropdown Modal */}
+        <Modal
+          visible={showBarangayDropdown}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowBarangayDropdown(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowBarangayDropdown(false)}
+          >
+            <View style={styles.dropdownModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Barangay</Text>
+                <TouchableOpacity onPress={() => setShowBarangayDropdown(false)}>
+                  <Ionicons name="close" size={24} color="#2D3748" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.dropdownList}>
+                {CALOOCAN_BARANGAYS.map((barangay: string) => (
+                  <TouchableOpacity
+                    key={barangay}
+                    style={[
+                      styles.dropdownItem,
+                      manualInput.barangay === barangay && styles.dropdownItemActive,
+                    ]}
+                    onPress={() => {
+                      setManualInput(prev => ({ ...prev, barangay }));
+                      setShowBarangayDropdown(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        manualInput.barangay === barangay && styles.dropdownItemTextActive,
+                      ]}
+                    >
+                      {barangay}
+                    </Text>
+                    {manualInput.barangay === barangay && (
+                      <Ionicons name="checkmark-circle" size={22} color="#4A90E2" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* City */}
         <View style={styles.inputContainer}>
@@ -223,6 +326,60 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   picker: { flex: 1, color: '#2D3748' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dropdownModal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    maxHeight: '70%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2D3748',
+  },
+  dropdownList: {
+    maxHeight: 400,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F7FAFC',
+  },
+  dropdownItemActive: {
+    backgroundColor: '#F0F7FF',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#2D3748',
+  },
+  dropdownItemTextActive: {
+    fontWeight: '600',
+    color: '#4A90E2',
+  },
   primaryButton: {
     backgroundColor: '#4A90E2',
     borderRadius: 25,

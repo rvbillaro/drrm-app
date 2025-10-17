@@ -75,11 +75,10 @@ const ReliefFormScreen: React.FC = () => {
     Alert.alert('Success', 'Your relief goods request has been submitted successfully.', [
       {
         text: 'OK',
-        onPress: () => router.back(), 
+        onPress: () => router.back(),
       },
     ]);
   };
-
 
   return (
     <KeyboardAvoidingView
@@ -259,6 +258,8 @@ const ReliefFormScreen: React.FC = () => {
               />
             </View>
           </View>
+
+
 
           {/* Submit Button */}
           <TouchableOpacity

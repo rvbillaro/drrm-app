@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import { submitIncidentToAdmin } from '../../src/services/incidentsService';
 import {
   ActivityIndicator,
   Alert,
@@ -67,8 +68,16 @@ const IncidentReportForm: React.FC = () => {
   const getCurrentLocation = async () => {
     setIsLoadingLocation(true);
     try {
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+
+      if (!servicesEnabled) {
+        Alert.alert('Location Services Disabled', 'Please enable location services in your device settings to use this feature.');
+        setIsLoadingLocation(false);
+        return;
+      }
+
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Please enable location services to use this feature.');
         setIsLoadingLocation(false);
@@ -90,7 +99,7 @@ const IncidentReportForm: React.FC = () => {
       if (addressResponse.length > 0) {
         const addr = addressResponse[0];
         const formattedAddress = `${addr.street || ''}, ${addr.city || ''}, ${addr.region || ''}, ${addr.country || ''}`.replace(/^, |, $|, ,/g, ', ').trim();
-        
+
         setLocation({
           address: formattedAddress,
           latitude,
@@ -200,14 +209,14 @@ const IncidentReportForm: React.FC = () => {
       const formData = {
         incidentType,
         description,
-        location,
+        location: location!,
         mediaFiles,
         timestamp: new Date().toISOString(),
       };
 
       console.log('Submitting incident report:', formData);
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await submitIncidentToAdmin(formData);
 
       Alert.alert(
         'Success',
@@ -353,6 +362,27 @@ const IncidentReportForm: React.FC = () => {
               <Text style={styles.locationCoords}>
                 {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
               </Text>
+              {/* <View style={styles.miniMapContainer}>
+                <MapView
+                  style={styles.miniMap}
+                  initialRegion={{
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                  scrollEnabled={false}
+                  zoomEnabled={false}
+                >
+                  <Marker
+                    coordinate={{
+                      latitude: location.latitude,
+                      longitude: location.longitude,
+                    }}
+                    pinColor="red"
+                  />
+                </MapView>
+              </View> */}
               <TouchableOpacity
                 style={styles.changeLocationButton}
                 onPress={getCurrentLocation}
@@ -641,6 +671,15 @@ placeholder: {
     fontSize: 12,
     color: '#A0AEC0',
     marginBottom: 12,
+  },
+  miniMapContainer: {
+    height: 150,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  miniMap: {
+    flex: 1,
   },
   changeLocationButton: {
     alignSelf: 'flex-start',

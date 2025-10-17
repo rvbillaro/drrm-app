@@ -1,4 +1,4 @@
-import { Alert, fetchRecentAlerts } from '@/src/data/alertsData';
+import { Alert, fetchRecentAlerts } from '@/src/services/alertsData';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -54,6 +54,13 @@ export default function AlertsCard({ limit = 3, showViewAll = false, onViewAll }
           borderColor: '#4A90E2',
           iconColor: '#4A90E2',
           icon: 'information-circle' as const,
+        };
+      default:
+        return {
+          backgroundColor: '#F7FAFC',
+          borderColor: '#CBD5E0',
+          iconColor: '#CBD5E0',
+          icon: 'ellipse' as const,
         };
     }
   };

@@ -1,34 +1,108 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { buttonStyles } from '../../src/components/utils/buttonStyles';
+import { cardStyles } from '../../src/components/utils/cardStyles';
+import { commonStyles } from '../../src/components/utils/commonStyles';
+import { textStyles } from '../../src/components/utils/textStyles';
+import { clearUserProfile, getUserProfile, updateUserProfile, UserProfile } from '../../src/services/userProfileService';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  
-  // Mock user data - replace with actual user data from Firebase/backend
-  const [user, setUser] = useState({
-    name: 'Juan Dela Cruz',
-    email: 'juan.delacruz@email.com',
-    phone: '+63 912 345 6789',
-    location: 'Pasay City, Metro Manila',
-    zone: 'North Zone',
-    avatar: null, // Add avatar URL when available
-  });
+
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await getUserProfile();
+        if (profile) {
+          setUser(profile);
+        } else {
+          // Fallback to mock data if no profile found
+          setUser({
+            id: '1',
+            name: 'Juan Dela Cruz',
+            email: 'juan.delacruz@email.com',
+            phone: '+63 912 345 6789',
+            location: {
+              fullAddress: 'Pasay City, Metro Manila',
+              city: 'Pasay City',
+              latitude: 14.5547,
+              longitude: 120.9842,
+            },
+            zone: 'North Zone',
+            avatar: null as string | null,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load user profile:', error);
+        // Fallback to mock data on error
+        setUser({
+          id: '1',
+          name: 'Juan Dela Cruz',
+          email: 'juan.delacruz@email.com',
+          phone: '+63 912 345 6789',
+          location: {
+            fullAddress: 'Pasay City, Metro Manila',
+            city: 'Pasay City',
+            latitude: 14.5547,
+            longitude: 120.9842,
+          },
+          zone: 'North Zone',
+            avatar: null as string | null,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   const handleEditProfile = () => {
     router.push('/edit-profile');
   };
 
-  const handleLogout = () => {
+  const handlePhoneEdit = () => {
+    setPhoneInput(user?.phone || '');
+    setIsEditingPhone(true);
+  };
+
+  const handlePhoneSave = async () => {
+    if (phoneInput.trim()) {
+      try {
+        await updateUserProfile({ phone: phoneInput.trim() });
+        setUser(prev => prev ? { ...prev, phone: phoneInput.trim() } : null);
+        setIsEditingPhone(false);
+      } catch (error) {
+        console.error('Failed to update phone:', error);
+        Alert.alert('Error', 'Failed to update phone number. Please try again.');
+      }
+    } else {
+      Alert.alert('Error', 'Phone number cannot be empty.');
+    }
+  };
+
+  const handlePhoneCancel = () => {
+    setIsEditingPhone(false);
+    setPhoneInput('');
+  };
+
+  const handleLogout = async () => {
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
@@ -37,9 +111,14 @@ export default function ProfileScreen() {
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: () => {
-            // TODO: Add logout logic
-            router.replace('/(auth)/login');
+          onPress: async () => {
+            try {
+              await clearUserProfile();
+              router.replace('/(auth)/login');
+            } catch (error) {
+              console.error('Failed to logout:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
           },
         },
       ]
@@ -51,7 +130,7 @@ export default function ProfileScreen() {
       id: '2',
       icon: 'location-outline',
       label: 'Location & Zone',
-      subtitle: user.zone,
+      subtitle: user?.zone || 'Zone not set',
       onPress: () => router.push('/onboarding/location'),
       showChevron: true,
     },
@@ -60,7 +139,7 @@ export default function ProfileScreen() {
       icon: 'document-text-outline',
       label: 'My Reports',
       subtitle: 'View incident reports',
-      onPress: () => console.log('My Reports'),
+      onPress: () => router.push('/screens/profile/my-reports'),
       showChevron: true,
     },
     {
@@ -68,7 +147,7 @@ export default function ProfileScreen() {
       icon: 'cube-outline',
       label: 'Relief Requests',
       subtitle: 'Track your requests',
-      onPress: () => console.log('Relief Requests'),
+      onPress: () => router.push('/screens/profile/relief-requests'),
       showChevron: true,
     },
   ];
@@ -99,121 +178,158 @@ export default function ProfileScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <View style={commonStyles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-      {/* Profile Card */}
-      <View style={styles.profileCard}>
-        <View style={styles.avatarContainer}>
-          {user.avatar ? (
-            <Image source={{ uri: user.avatar }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={40} color="#fff" />
-            </View>
-          )}
-          <TouchableOpacity style={styles.editAvatarButton}>
-            <Ionicons name="camera" size={16} color="#fff" />
-          </TouchableOpacity>
+        {/* Profile Header */}
+        <View style={styles.header}>
+          <View style={styles.avatarContainer}>
+            {user?.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person" size={40} color="#fff" />
+              </View>
+            )}
+            <TouchableOpacity style={styles.editAvatarButton} onPress={handleEditProfile}>
+              <Ionicons name="camera" size={16} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.userName}>{user?.name || 'User'}</Text>
+          <Text style={styles.userEmail}>{user?.email || 'user@email.com'}</Text>
         </View>
 
-        <Text style={styles.userName}>{user.name}</Text>
-        <Text style={styles.userEmail}>{user.email}</Text>
+        {/* Profile Info Card */}
+        <View style={styles.infoSection}>
+          <View style={cardStyles.cardSmall}>
+            <View style={styles.infoItem}>
+              <Ionicons name="call-outline" size={20} color="#4A90E2" />
+              <View style={styles.infoContent}>
+                <View style={styles.infoHeader}>
+                  <Text style={styles.infoLabel}>Phone</Text>
+                  <TouchableOpacity onPress={handlePhoneEdit} style={styles.editButton}>
+                    <Feather name="edit" size={20} color="#4A90E2" />
+                  </TouchableOpacity>
+                </View>
+                {isEditingPhone ? (
+                  <View style={styles.editContainer}>
+                    <TextInput
+                      style={styles.phoneInput}
+                      value={phoneInput}
+                      onChangeText={setPhoneInput}
+                      placeholder="Enter phone number"
+                      keyboardType="phone-pad"
+                    />
+                    <View style={styles.editActions}>
+                      <TouchableOpacity onPress={handlePhoneSave} style={styles.saveButton}>
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handlePhoneCancel} style={styles.cancelButton}>
+                        <Ionicons name="close" size={16} color="#718096" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.infoText}>{user?.phone || '+63 XXX XXX XXXX'}</Text>
+                )}
+              </View>
+            </View>
 
-        <View style={styles.infoContainer}>
-          <View style={styles.infoItem}>
-            <Ionicons name="call-outline" size={18} color="#718096" />
-            <Text style={styles.infoText}>{user.phone}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="location-outline" size={18} color="#718096" />
-            <Text style={styles.infoText}>{user.location}</Text>
+            <View style={styles.infoItem}>
+              <Ionicons name="location-outline" size={20} color="#4A90E2" />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Location</Text>
+                <Text style={styles.infoText}>{user?.location?.fullAddress || 'Location not set'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoItem}>
+              <Ionicons name="map-outline" size={20} color="#4A90E2" />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Barangay</Text>
+                <Text style={styles.infoText}>{user?.location?.barangay || 'Barangay not set'}</Text>
+              </View>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Account Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        {menuItems.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.menuItem}
-            onPress={item.onPress}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuIconContainer}>
-              <Ionicons name={item.icon as any} size={22} color="#4A90E2" />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              {item.subtitle && (
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+        {/* Account Section */}
+        <View style={cardStyles.section}>
+          <Text style={textStyles.sectionTitle}>Account</Text>
+          {menuItems.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.menuItem}
+              onPress={item.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuIconContainer}>
+                <Ionicons name={item.icon as any} size={22} color="#4A90E2" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                {item.subtitle && (
+                  <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                )}
+              </View>
+              {item.showChevron && (
+                <Ionicons name="chevron-forward" size={20} color="#CBD5E0" />
               )}
-            </View>
-            {item.showChevron && (
-              <Ionicons name="chevron-forward" size={20} color="#CBD5E0" />
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      {/* Support Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Other</Text>
-        {supportItems.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.menuItem}
-            onPress={item.onPress}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuIconContainer}>
-              <Ionicons name={item.icon as any} size={22} color="#718096" />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              {item.subtitle && (
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+        {/* Support Section */}
+        <View style={cardStyles.section}>
+          <Text style={textStyles.sectionTitle}>Legal</Text>
+          {supportItems.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.menuItem}
+              onPress={item.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuIconContainer}>
+                <Ionicons name={item.icon as any} size={22} color="#718096" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                {item.subtitle && (
+                  <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                )}
+              </View>
+              {item.showChevron && (
+                <Ionicons name="chevron-forward" size={20} color="#CBD5E0" />
               )}
-            </View>
-            {item.showChevron && (
-              <Ionicons name="chevron-forward" size={20} color="#CBD5E0" />
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      {/* Logout Button */}
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={handleLogout}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="log-out-outline" size={22} color="#FF6B6B" />
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
+        {/* Logout Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="log-out-outline" size={22} color="#FF6B6B" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
 
-      <View style={styles.bottomSpacer} />
-    </ScrollView>
+        <View style={commonStyles.bottomSpacer} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
+  scrollContent: {
+    padding: 20,
   },
-  profileCard: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 16,
-    padding: 24,
+  header: {
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    paddingVertical: 30,
+    paddingHorizontal: 20,
   },
   avatarContainer: {
     position: 'relative',
@@ -245,66 +361,37 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#fff',
   },
-  userName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1A202C',
-    marginBottom: 4,
-  },
+  userName: textStyles.title,
   userEmail: {
     fontSize: 14,
     color: '#718096',
     marginBottom: 16,
   },
-  infoContainer: {
-    width: '100%',
-    gap: 8,
-    marginBottom: 16,
+  infoSection: {
+    marginBottom: 24,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F7FAFC',
-    padding: 12,
-    borderRadius: 8,
+    gap: 12,
+    marginBottom: 16,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#718096',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    flex: 1,
   },
   infoText: {
     fontSize: 14,
     color: '#2D3748',
-    flex: 1,
-  },
-  editProfileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F0F7FF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 20,
-  },
-  editProfileText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#4A90E2',
-  },
-  section: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A202C',
-    marginBottom: 12,
+    fontWeight: '500',
   },
   menuItem: {
     flexDirection: 'row',
@@ -335,24 +422,51 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#A0AEC0',
   },
-  logoutButton: {
+  logoutButton: buttonStyles.dangerButton,
+  logoutText: buttonStyles.dangerButtonText,
+  infoHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    borderRadius: 25,
-    padding: 13,
+    marginBottom: 4,
+  },
+  editButton: {
+    padding: 4,
+  },
+  editContainer: {
+    marginTop: 8,
+  },
+  phoneInput: {
     borderWidth: 1,
-    borderColor: '#FFE8E8',
+    borderColor: '#CBD5E0',
+    borderRadius: 8,
+    padding: 8,
+    fontSize: 14,
+    color: '#2D3748',
+    backgroundColor: '#fff',
+  },
+  editActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 8,
+    marginTop: 8,
   },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF6B6B',
+  saveButton: {
+    backgroundColor: '#4A90E2',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  bottomSpacer: {
-    height: 100,
+  cancelButton: {
+    backgroundColor: '#F7FAFC',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
   },
 });

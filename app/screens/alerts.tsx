@@ -1,8 +1,13 @@
-import { Alert, fetchAlerts } from '@/src/data/alertsData';
+import { fetchAlerts } from '@/src/services/alertsData';
+import { Alert } from '@/src/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { buttonStyles } from '../../src/components/utils/buttonStyles';
+import { cardStyles } from '../../src/components/utils/cardStyles';
+import { commonStyles } from '../../src/components/utils/commonStyles';
+import { textStyles } from '../../src/components/utils/textStyles';
 
 export default function AllAlertsScreen() {
   const router = useRouter();
@@ -58,6 +63,13 @@ export default function AllAlertsScreen() {
           iconColor: '#4A90E2',
           icon: 'information-circle' as const,
         };
+      default:
+        return {
+          backgroundColor: '#F7FAFC',
+          borderColor: '#CBD5E0',
+          iconColor: '#CBD5E0',
+          icon: 'ellipse' as const,
+        };
     }
   };
 
@@ -90,7 +102,7 @@ export default function AllAlertsScreen() {
             )}
           </View>
           
-          <Text style={styles.alertMessage}>
+          <Text style={styles.alertMessage} numberOfLines={2}>
             {item.message}
           </Text>
           
@@ -159,38 +171,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBFBFB',
   },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A202C',
-  },
+  headerBar: commonStyles.headerBar,
+  backButton: commonStyles.backButton,
+  headerTitle: commonStyles.headerTitle,
   placeholder: {
     width: 32,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: '#718096',
-  },
+  loadingContainer: commonStyles.loadingContainer,
+  loadingText: commonStyles.loadingText,
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -204,21 +192,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     textAlign: 'center',
   },
-  retryButton: {
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  emptyContainer: {
-    padding: 60,
-    alignItems: 'center',
-  },
+  retryButton: buttonStyles.actionButton,
+  retryText: buttonStyles.actionButtonText,
+  emptyContainer: commonStyles.emptyState,
   emptyText: {
     fontSize: 16,
     color: '#A0AEC0',
@@ -227,18 +203,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 20,
   },
-  alertCard: {
-    flexDirection: 'row',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  alertCard: cardStyles.alertCard,
   alertIcon: {
     marginRight: 12,
     marginTop: 2,
@@ -279,9 +244,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 8,
   },
-  alertTime: {
-    fontSize: 12,
-    color: '#A0AEC0',
-    fontWeight: '500',
-  },
+  alertTime: textStyles.timestamp,
 });
