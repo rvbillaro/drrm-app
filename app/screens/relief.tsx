@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { getUserSession } from '../../src/services/authService';
+import { getUserAddress } from '../../src/services/userService';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -20,14 +22,56 @@ const ReliefFormScreen: React.FC = () => {
   const [date, setDate] = useState('');
   const [zone, setZone] = useState<string>('');
   const [familySize, setFamilySize] = useState('');
-  const [contact, setContact] = useState('');
+  const [contact, setContact] = useState('+63 ');
   const [address, setAddress] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date | null>(null);
+  const [userPhoneVerified, setUserPhoneVerified] = useState<boolean>(false);
+  const [userId, setUserId] = useState<string>('');
+  const [userPhone, setUserPhone] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
 
+  const router = useRouter();
 
+  useEffect(() => {
+    checkPhoneVerification();
+  }, []);
 
-  const router = useRouter(); 
+  const checkPhoneVerification = async () => {
+    try {
+      const user = await getUserSession();
+      if (user) {
+        setUserPhoneVerified(user.phoneVerified || false);
+        setUserId(user.id);
+        setUserPhone(user.phone || '');
+        setUserName(user.name);
+        
+        // Pre-fill form with user data
+        setName(user.name);
+        setContact(user.phone || '+63 ');
+      }
+      
+      // Load user address separately
+      const userAddress = await getUserAddress();
+      if (userAddress) {
+        // Combine full address
+        const addressParts = [];
+        if (userAddress.fullAddress) addressParts.push(userAddress.fullAddress);
+        if (userAddress.barangay) addressParts.push(userAddress.barangay);
+        if (userAddress.city) addressParts.push(userAddress.city);
+        
+        if (addressParts.length > 0) {
+          setAddress(addressParts.join(', '));
+        }
+        
+        if (userAddress.zone) {
+          setZone(userAddress.zone);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  }; 
 
   const validateForm = (): boolean => {
     if (!name.trim()) {
@@ -57,27 +101,72 @@ const ReliefFormScreen: React.FC = () => {
     return true;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Check if phone is verified first
+    if (!userPhoneVerified) {
+      Alert.alert(
+        'Phone Verification Required',
+        'You must verify your phone number before requesting relief goods. This helps us ensure the request is legitimate.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Verify Now',
+            onPress: () => {
+              router.push({
+                pathname: '/screens/verify-phone',
+                params: {
+                  userId: userId,
+                  phone: userPhone,
+                  name: userName,
+                },
+              });
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     if (!validateForm()) return;
 
     const formData = {
+      userId: userId,
       name,
       date,
       zone,
       familySize: parseInt(familySize),
       contact,
       address,
-      submittedAt: new Date().toISOString(),
     };
 
-    console.log('Relief Goods Form:', formData);
+    try {
+      const response = await fetch('http://192.168.8.118/api/relief.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
-    Alert.alert('Success', 'Your relief goods request has been submitted successfully.', [
-      {
-        text: 'OK',
-        onPress: () => router.back(),
-      },
-    ]);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      Alert.alert('Success', 'Your relief goods request has been submitted successfully.', [
+        {
+          text: 'OK',
+          onPress: () => router.back(),
+        },
+      ]);
+    } catch (error) {
+      console.error('Error submitting relief request:', error);
+      Alert.alert('Error', 'Failed to submit request. Please try again.');
+    }
   };
 
   return (
@@ -96,6 +185,34 @@ const ReliefFormScreen: React.FC = () => {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {/* Phone Verification Status Banner */}
+          {!userPhoneVerified && (
+            <View style={styles.warningBanner}>
+              <Ionicons name="warning" size={20} color="#F59E0B" />
+              <View style={styles.warningContent}>
+                <Text style={styles.warningTitle}>Phone Verification Required</Text>
+                <Text style={styles.warningText}>
+                  You must verify your phone number to submit relief requests.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.verifyButton}
+                onPress={() => {
+                  router.push({
+                    pathname: '/screens/verify-phone',
+                    params: {
+                      userId: userId,
+                      phone: userPhone,
+                      name: userName,
+                    },
+                  });
+                }}
+              >
+                <Text style={styles.verifyButtonText}>Verify</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={styles.header}>
             <Text style={styles.subtitle}>
               Fill out this form to request relief goods distribution
@@ -105,14 +222,14 @@ const ReliefFormScreen: React.FC = () => {
           {/* Name */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Full Name *</Text>
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, styles.readOnlyInput]}>
               <Ionicons name="person-outline" size={20} color="#A0AEC0" />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your full name"
                 placeholderTextColor="#A0AEC0"
                 value={name}
-                onChangeText={setName}
+                editable={false}
                 autoCapitalize="words"
               />
             </View>
@@ -189,12 +306,13 @@ const ReliefFormScreen: React.FC = () => {
           {/* Zone */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Zone *</Text>
-            <View style={styles.pickerWrapper}>
+            <View style={[styles.pickerWrapper, styles.readOnlyInput]}>
               <Ionicons name="compass-outline" size={20} color="#A0AEC0" style={{ marginRight: 8 }} />
               <Picker
                 selectedValue={zone}
                 onValueChange={(value) => setZone(value)}
                 style={styles.picker}
+                enabled={false}
               >
                 <Picker.Item label="Select Zone" value="" color="#A0AEC0" />
                 <Picker.Item label="North" value="north" />
@@ -223,14 +341,14 @@ const ReliefFormScreen: React.FC = () => {
           {/* Contact Number */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Contact Number *</Text>
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, styles.readOnlyInput]}>
               <Ionicons name="call-outline" size={20} color="#A0AEC0" />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your contact number"
                 placeholderTextColor="#A0AEC0"
                 value={contact}
-                onChangeText={setContact}
+                editable={false}
                 keyboardType="phone-pad"
               />
             </View>
@@ -239,7 +357,7 @@ const ReliefFormScreen: React.FC = () => {
           {/* Address */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Complete Address *</Text>
-            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+            <View style={[styles.inputWrapper, styles.textAreaWrapper, styles.readOnlyInput]}>
               <Ionicons
                 name="location-outline"
                 size={20}
@@ -248,10 +366,10 @@ const ReliefFormScreen: React.FC = () => {
               />
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="Enter your complete address"
+                placeholder={address ? address : "Loading address from profile..."}
                 placeholderTextColor="#A0AEC0"
                 value={address}
-                onChangeText={setAddress}
+                editable={false}
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
@@ -336,6 +454,10 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     paddingHorizontal: 16,
     minHeight: 56,
+  },
+  readOnlyInput: {
+    backgroundColor: '#F7FAFC',
+    borderColor: '#CBD5E0',
   },
   input: {
     flex: 1,
@@ -426,12 +548,48 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 40,
   },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    gap: 12,
+  },
+  warningContent: {
+    flex: 1,
+  },
+  warningTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#B45309',
+    lineHeight: 18,
+  },
+  verifyButton: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  verifyButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
   iosPickerContainer: {
-  backgroundColor: '#fff',
-  borderRadius: 12,
-  marginTop: 8,
-  borderWidth: 1,
-  borderColor: '#E2E8F0',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   iosPickerHeader: {
     flexDirection: 'row',

@@ -1,7 +1,8 @@
 import { ReliefRequest } from '../types';
 
 // API base URL - change this to your backend URL
-const API_BASE_URL = 'http://localhost:8000/api'; // Adjust port as needed
+// Use your computer's local IP address instead of localhost for mobile testing
+const API_BASE_URL = 'http://192.168.8.118/api';
 
 // Mock data - used as fallback when API is unavailable
 const mockReliefRequestsData: ReliefRequest[] = [
@@ -41,9 +42,13 @@ export const submitReliefRequest = async (request: Omit<ReliefRequest, 'id' | 's
   }
 };
 
-export const fetchReliefRequests = async (limit?: number): Promise<ReliefRequest[]> => {
+export const fetchReliefRequests = async (userId?: string, limit?: number): Promise<ReliefRequest[]> => {
   try {
-    const url = limit ? `${API_BASE_URL}/relief.php?limit=${limit}` : `${API_BASE_URL}/relief.php`;
+    const params = new URLSearchParams();
+    if (userId) params.append('user_id', userId);
+    if (limit) params.append('limit', limit.toString());
+    
+    const url = params.toString() ? `${API_BASE_URL}/relief.php?${params.toString()}` : `${API_BASE_URL}/relief.php`;
     const response = await fetch(url);
 
     if (!response.ok) {

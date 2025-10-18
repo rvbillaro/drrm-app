@@ -1,18 +1,23 @@
 import { IncidentReport } from '../types';
 
-const INCIDENTS_ENDPOINT = 'http://localhost:5173/backend3/api/incidents.php';
+const INCIDENTS_ENDPOINT = 'http://192.168.8.118/api/reports.php';
 
 export async function submitIncidentToAdmin(
-  report: Omit<IncidentReport, 'id' | 'status'>
+  report: Omit<IncidentReport, 'id' | 'status'>,
+  userId?: string
 ): Promise<any> {
-  // Map to API contract (snake_case) and send JSON
+  // Map to API contract (camelCase to match backend)
   const payload: any = {
-    incident_type: report.incidentType,
-    location: report.location.address,
+    userId: userId,
+    incidentType: report.incidentType,
     description: report.description,
-    latitude: report.location.latitude,
-    longitude: report.location.longitude,
-    // status and priority can be added if provided in future
+    location: {
+      address: report.location.address,
+      latitude: report.location.latitude,
+      longitude: report.location.longitude,
+    },
+    mediaFiles: report.mediaFiles || [],
+    timestamp: new Date().toISOString(),
   };
 
   const response = await fetch(INCIDENTS_ENDPOINT, {
@@ -24,12 +29,17 @@ export async function submitIncidentToAdmin(
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    const errorText = await response.text();
+    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
   }
 
+  // Get the response text first, then try to parse as JSON
+  const responseText = await response.text();
+  
   try {
-    return await response.json();
+    return JSON.parse(responseText);
   } catch {
-    return await response.text();
+    // If not JSON, return the text as is
+    return responseText;
   }
 }

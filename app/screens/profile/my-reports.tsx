@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { getUserSession } from '../../../src/services/authService';
 import { buttonStyles } from '../../../src/components/utils/buttonStyles';
 import { cardStyles } from '../../../src/components/utils/cardStyles';
 import { commonStyles } from '../../../src/components/utils/commonStyles';
@@ -21,22 +22,33 @@ const MyReportsScreen: React.FC = () => {
   const router = useRouter();
   const [reports, setReports] = useState<IncidentReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string>('');
 
-  useEffect(() => {
-    loadReports();
-  }, []);
-
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     try {
-      const fetchedReports = await fetchIncidentReports();
-      setReports(fetchedReports);
+      setLoading(true);
+      // Get current user
+      const user = await getUserSession();
+      if (user) {
+        setUserId(user.id);
+        // Fetch reports for this user
+        const fetchedReports = await fetchIncidentReports(user.id);
+        setReports(fetchedReports);
+      }
     } catch (error) {
       console.error('Failed to load reports:', error);
       Alert.alert('Error', 'Failed to load reports. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Reload reports when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadReports();
+    }, [loadReports])
+  );
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -127,7 +139,7 @@ const MyReportsScreen: React.FC = () => {
             </Text>
             <TouchableOpacity
               style={styles.reportButton}
-              onPress={() => router.push('/report')}
+              onPress={() => router.push('/screens/report')}
             >
               <Text style={styles.reportButtonText}>Submit a Report</Text>
             </TouchableOpacity>

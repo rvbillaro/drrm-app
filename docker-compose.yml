@@ -1,6 +1,25 @@
-version: '3.8'
-
 services:
+  # PHP Apache Service
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: drrm_php
+    ports:
+      - "80:80"
+    volumes:
+      - ./backend:/var/www/html
+    depends_on:
+      - mysql
+    networks:
+      - drrm_network
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=drrm_app
+      - MYSQL_USER=drrm_user
+      - MYSQL_PASSWORD=drrm_password
+
+  # MySQL Database Service
   mysql:
     image: mysql:8.0
     container_name: drrm_mysql
@@ -11,32 +30,35 @@ services:
       MYSQL_USER: drrm_user
       MYSQL_PASSWORD: drrm_password
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - drrm_network
 
+  # phpMyAdmin Service
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
+    image: phpmyadmin:latest
     container_name: drrm_phpmyadmin
     restart: always
+    ports:
+      - "8080:80"
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
-      PMA_USER: drrm_user
-      PMA_PASSWORD: drrm_password
-    ports:
-      - "8080:80"
+      PMA_USER: root
+      PMA_PASSWORD: rootpassword
+      UPLOAD_LIMIT: 50M
     depends_on:
       - mysql
     networks:
       - drrm_network
 
-volumes:
-  mysql_data:
-
 networks:
   drrm_network:
     driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

@@ -3,7 +3,9 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -17,18 +19,89 @@ const SignUpScreen: React.FC = () => {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('+63 ');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState(0);
 
-  const handleSignUp = () => {
+  const handlePhoneChange = (text: string) => {
+    // Always ensure the phone starts with +63
+    if (!text.startsWith('+63 ')) {
+      // If user tries to delete the prefix, reset it
+      if (text.length < '+63 '.length) {
+        setPhone('+63 ');
+        return;
+      }
+      // If somehow the prefix is missing, add it back
+      setPhone('+63 ' + text.replace(/^\+63\s*/, ''));
+    } else {
+      // Only allow numbers after the prefix
+      const numberPart = text.slice(4); // Get everything after '+63 '
+      const cleanNumber = numberPart.replace(/[^0-9]/g, ''); // Remove non-digits
+      setPhone('+63 ' + cleanNumber);
+    }
+  };
+
+  const calculatePasswordStrength = (password: string): number => {
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/[0-9]/.test(password)) strength++;
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
+    return strength;
+  };
+
+  const getPasswordStrengthColor = (strength: number): string => {
+    if (strength <= 2) return '#EF4444'; // Red - Weak
+    if (strength === 3) return '#F59E0B'; // Orange - Fair
+    if (strength === 4) return '#3B82F6'; // Blue - Good
+    return '#10B981'; // Green - Strong
+  };
+
+  const getPasswordStrengthText = (strength: number): string => {
+    if (strength === 0) return '';
+    if (strength <= 2) return 'Weak';
+    if (strength === 3) return 'Fair';
+    if (strength === 4) return 'Good';
+    return 'Strong';
+  };
+
+  const validatePassword = (password: string): { isValid: boolean; message: string } => {
+    if (password.length < 8) {
+      return { isValid: false, message: 'Password must be at least 8 characters long' };
+    }
+    if (!/[A-Z]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one uppercase letter' };
+    }
+    if (!/[a-z]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one lowercase letter' };
+    }
+    if (!/[0-9]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one number' };
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      return { isValid: false, message: 'Password must contain at least one special character (!@#$%^&*...)' };
+    }
+    return { isValid: true, message: '' };
+  };
+
+  const handleSignUp = async () => {
     if (!fullName || !email || !phone || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
+    
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      Alert.alert('Weak Password', passwordValidation.message);
+      return;
+    }
+    
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return;
@@ -37,23 +110,35 @@ const SignUpScreen: React.FC = () => {
       Alert.alert('Error', 'Please agree to the terms and conditions');
       return;
     }
-    
-    // TODO: Send data to backend API
-    const userData = {
-      fullName,
-      email,
-      phone,
-      password,
-    };
-    console.log('Creating account:', userData);
-    
-    // Navigate to location onboarding after successful signup
-    Alert.alert('Success', 'Account created successfully!', [
-      { 
-        text: 'OK', 
-        onPress: () => router.replace('/onboarding/location') 
-      }
-    ]);
+
+    try {
+      const { registerUser, saveUserSession } = await import('../../src/services/authService');
+
+      const userData = {
+        name: fullName,
+        email,
+        phone,
+        password,
+      };
+
+      const result = await registerUser(userData);
+
+      // Save user session
+      await saveUserSession(result.user);
+
+      // Navigate to email verification
+      router.replace({
+        pathname: '/(auth)/verify-email',
+        params: {
+          userId: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+        },
+      });
+    } catch (error) {
+      console.error('Error registering user:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create account. Please try again.');
+    }
   };
 
   return (
@@ -61,15 +146,24 @@ const SignUpScreen: React.FC = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>
-            Sign up to report emergencies and stay informed
-          </Text>
+
+        <View style={styles.headerContainer}>
+          <Image
+            source={require('../../assets/images/t-icon-2.png')}
+            style={styles.backgroundLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.header}>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>
+              Sign up to report emergencies and stay informed
+            </Text>
+
+          </View>
         </View>
 
         <View style={styles.form}>
@@ -113,11 +207,12 @@ const SignUpScreen: React.FC = () => {
               <Ionicons name="call-outline" size={20} color="#A0AEC0" />
               <TextInput
                 style={styles.input}
-                placeholder="Enter your phone number"
+                placeholder="+63 9xxxxxxxxx"
                 placeholderTextColor="#A0AEC0"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={handlePhoneChange}
                 keyboardType="phone-pad"
+                maxLength={14} // +63 + space + 10 digits = 14 characters
               />
             </View>
           </View>
@@ -132,7 +227,10 @@ const SignUpScreen: React.FC = () => {
                 placeholder="Create a password"
                 placeholderTextColor="#A0AEC0"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setPasswordStrength(calculatePasswordStrength(text));
+                }}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
               />
@@ -144,6 +242,53 @@ const SignUpScreen: React.FC = () => {
                 />
               </TouchableOpacity>
             </View>
+            {/* Password Strength Indicator */}
+            {password.length > 0 && (
+              <View style={styles.passwordStrengthContainer}>
+                <View style={styles.strengthBars}>
+                  {[1, 2, 3, 4, 5].map((bar) => (
+                    <View
+                      key={bar}
+                      style={[
+                        styles.strengthBar,
+                        bar <= passwordStrength && {
+                          backgroundColor: getPasswordStrengthColor(passwordStrength),
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+                <Text
+                  style={[
+                    styles.strengthText,
+                    { color: getPasswordStrengthColor(passwordStrength) },
+                  ]}
+                >
+                  {getPasswordStrengthText(passwordStrength)}
+                </Text>
+              </View>
+            )}
+            {/* Password Requirements */}
+            {password.length > 0 && passwordStrength < 5 && (
+              <View style={styles.requirementsContainer}>
+                <Text style={styles.requirementsTitle}>Password must contain:</Text>
+                <Text style={[styles.requirement, password.length >= 8 && styles.requirementMet]}>
+                  {password.length >= 8 ? '✓' : '○'} At least 8 characters
+                </Text>
+                <Text style={[styles.requirement, /[A-Z]/.test(password) && styles.requirementMet]}>
+                  {/[A-Z]/.test(password) ? '✓' : '○'} One uppercase letter
+                </Text>
+                <Text style={[styles.requirement, /[a-z]/.test(password) && styles.requirementMet]}>
+                  {/[a-z]/.test(password) ? '✓' : '○'} One lowercase letter
+                </Text>
+                <Text style={[styles.requirement, /[0-9]/.test(password) && styles.requirementMet]}>
+                  {/[0-9]/.test(password) ? '✓' : '○'} One number
+                </Text>
+                <Text style={[styles.requirement, /[!@#$%^&*(),.?":{}|<>]/.test(password) && styles.requirementMet]}>
+                  {/[!@#$%^&*(),.?":{}|<>]/.test(password) ? '✓' : '○'} One special character
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Confirm Password */}
@@ -171,19 +316,32 @@ const SignUpScreen: React.FC = () => {
           </View>
 
           {/* Terms and Conditions */}
-          <TouchableOpacity
-            style={styles.checkboxContainer}
-            onPress={() => setAgreeToTerms(!agreeToTerms)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, agreeToTerms && styles.checkboxChecked]}>
-              {agreeToTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
-            </View>
+          <View style={styles.checkboxContainer}>
+            <TouchableOpacity
+              onPress={() => setAgreeToTerms(!agreeToTerms)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, agreeToTerms && styles.checkboxChecked]}>
+                {agreeToTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
+              </View>
+            </TouchableOpacity>
             <Text style={styles.checkboxLabel}>
               I agree to the{' '}
-              <Text style={styles.link}>Terms and Conditions</Text>
+              <Text 
+                style={styles.link}
+                onPress={() => router.push('/screens/legal/terms')}
+              >
+                Terms and Conditions
+              </Text>
+              {' '}and{' '}
+              <Text 
+                style={styles.link}
+                onPress={() => router.push('/screens/legal/privacy')}
+              >
+                Privacy Policy
+              </Text>
             </Text>
-          </TouchableOpacity>
+          </View>
 
           {/* Sign Up Button */}
           <TouchableOpacity
@@ -227,26 +385,43 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 60,
+    //paddingHorizontal: 24,
+    //paddingTop: 60,
     paddingBottom: 40,
   },
   header: {
-    marginBottom: 40,
+    paddingHorizontal: 24,
+    paddingVertical: 50,
   },
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#1A202C',
+    color: '#fbfbfb',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#718096',
+    color: '#fbfbfb',
     lineHeight: 24,
   },
   form: {
     flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  headerContainer: {
+    backgroundColor: '#4CAF50',
+    overflow: 'hidden',
+  },
+  backgroundLogo: {
+    position: 'absolute',
+    width: 290,
+    height: 290,
+    opacity: 0.5,
+    right: -60,
+    top: '10%',
+    marginTop: -50,
+    zIndex: 0,
   },
   inputContainer: {
     marginBottom: 20,
@@ -365,6 +540,49 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#4A90E2',
     fontWeight: '700',
+  },
+  passwordStrengthContainer: {
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  strengthBars: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 8,
+  },
+  strengthBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+  },
+  strengthText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  requirementsContainer: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  requirementsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4A5568',
+    marginBottom: 6,
+  },
+  requirement: {
+    fontSize: 12,
+    color: '#718096',
+    marginBottom: 4,
+  },
+  requirementMet: {
+    color: '#10B981',
+    fontWeight: '600',
   },
 });
 

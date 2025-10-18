@@ -2,10 +2,10 @@
 // Database configuration for DRRM app
 
 class Database {
-    private $host = 'localhost';
+    private $host = 'mysql';
     private $db_name = 'drrm_app';
-    private $username = 'root';
-    private $password = '';
+    private $username = 'drrm_user';
+    private $password = 'drrm_password';
     private $conn;
 
     public function getConnection() {

@@ -3,7 +3,8 @@ import { Schedule } from '../types';
 export type { Schedule };
 
 // API base URL - change this to your backend URL
-const API_BASE_URL = 'http://localhost:8000/api'; // Adjust port as needed
+// Use your computer's local IP address instead of localhost for mobile testing
+const API_BASE_URL = 'http://192.168.8.118/api';
 
 // Mock data - used as fallback when API is unavailable
 const mockSchedulesData: Schedule[] = [

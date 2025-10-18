@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { getUserSession } from '../../src/services/authService';
 import { submitIncidentToAdmin } from '../../src/services/incidentsService';
 import {
   ActivityIndicator,
@@ -47,6 +48,22 @@ const IncidentReportForm: React.FC = () => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [userId, setUserId] = useState<string>('');
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  const loadUser = async () => {
+    try {
+      const user = await getUserSession();
+      if (user) {
+        setUserId(user.id);
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
+    }
+  };
 
   // Incident types
   const incidentTypes: IncidentType[] = [
@@ -196,6 +213,10 @@ const IncidentReportForm: React.FC = () => {
       Alert.alert('Missing Information', 'Please provide a description of the incident.');
       return false;
     }
+    if (mediaFiles.length === 0) {
+      Alert.alert('Photo Required', 'Please add at least one photo of the incident. This helps verify the report.');
+      return false;
+    }
     return true;
   };
 
@@ -216,7 +237,7 @@ const IncidentReportForm: React.FC = () => {
 
       console.log('Submitting incident report:', formData);
 
-      await submitIncidentToAdmin(formData);
+      await submitIncidentToAdmin(formData, userId);
 
       Alert.alert(
         'Success',
@@ -410,9 +431,9 @@ const IncidentReportForm: React.FC = () => {
 
         {/* Media Upload */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Photo/Video Evidence</Text>
+          <Text style={styles.sectionTitle}>Photo/Video Evidence *</Text>
           <Text style={styles.sectionSubtitle}>
-            Add images or videos to help document the incident
+            At least one photo is required to verify the incident
           </Text>
 
           <View style={styles.mediaButtonsContainer}>

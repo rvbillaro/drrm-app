@@ -4,6 +4,7 @@ class IncidentReport {
     private $table_name = "incident_reports";
 
     public $id;
+    public $user_id;
     public $incident_type;
     public $description;
     public $location_address;
@@ -19,7 +20,7 @@ class IncidentReport {
 
     public function create() {
         $query = "INSERT INTO " . $this->table_name . "
-                  SET incident_type=:incident_type, description=:description,
+                  SET user_id=:user_id, incident_type=:incident_type, description=:description,
                       location_address=:location_address, location_lat=:location_lat,
                       location_lng=:location_lng, media_files=:media_files,
                       timestamp=:timestamp, status=:status";
@@ -27,6 +28,7 @@ class IncidentReport {
         $stmt = $this->conn->prepare($query);
 
         // Sanitize
+        $this->user_id = $this->user_id ? htmlspecialchars(strip_tags($this->user_id)) : null;
         $this->incident_type = htmlspecialchars(strip_tags($this->incident_type));
         $this->description = htmlspecialchars(strip_tags($this->description));
         $this->location_address = htmlspecialchars(strip_tags($this->location_address));
@@ -37,6 +39,7 @@ class IncidentReport {
         $this->status = htmlspecialchars(strip_tags($this->status));
 
         // Bind values
+        $stmt->bindParam(":user_id", $this->user_id);
         $stmt->bindParam(":incident_type", $this->incident_type);
         $stmt->bindParam(":description", $this->description);
         $stmt->bindParam(":location_address", $this->location_address);
@@ -51,14 +54,22 @@ class IncidentReport {
             return true;
         }
 
+        // Log error for debugging
+        error_log("IncidentReport create failed: " . print_r($stmt->errorInfo(), true));
         return false;
     }
 
-    public function read($limit = null) {
-        $query = "SELECT id, incident_type, description, location_address,
+    public function read($limit = null, $user_id = null) {
+        $query = "SELECT id, user_id, incident_type, description, location_address,
                          location_lat, location_lng, media_files, timestamp, status
-                  FROM " . $this->table_name . "
-                  ORDER BY timestamp DESC";
+                  FROM " . $this->table_name;
+        
+        $where_clause = "";
+        if ($user_id) {
+            $where_clause = " WHERE user_id = :user_id";
+        }
+        
+        $query .= $where_clause . " ORDER BY timestamp DESC";
 
         if ($limit) {
             $query .= " LIMIT 0, :limit";
@@ -66,6 +77,10 @@ class IncidentReport {
 
         $stmt = $this->conn->prepare($query);
 
+        if ($user_id) {
+            $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+        }
+        
         if ($limit) {
             $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
         }

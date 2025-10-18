@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -15,7 +15,15 @@ import { buttonStyles } from '../../src/components/utils/buttonStyles';
 import { cardStyles } from '../../src/components/utils/cardStyles';
 import { commonStyles } from '../../src/components/utils/commonStyles';
 import { textStyles } from '../../src/components/utils/textStyles';
-import { clearUserProfile, getUserProfile, updateUserProfile, UserProfile } from '../../src/services/userProfileService';
+import { getUserSession, logoutUser } from '../../src/services/authService';
+import { getUserAddress, saveUserAddress } from '../../src/services/userService';
+import { User, UserAddress } from '../../src/types';
+
+interface UserProfile extends User {
+  avatar?: string | null;
+  zone?: string;
+  location?: UserAddress;
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -25,53 +33,37 @@ export default function ProfileScreen() {
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState('');
 
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        const profile = await getUserProfile();
-        if (profile) {
-          setUser(profile);
-        } else {
-          // Fallback to mock data if no profile found
-          setUser({
-            id: '1',
-            name: 'Juan Dela Cruz',
-            email: 'juan.delacruz@email.com',
-            phone: '+63 912 345 6789',
-            location: {
-              fullAddress: 'Pasay City, Metro Manila',
-              city: 'Pasay City',
-              latitude: 14.5547,
-              longitude: 120.9842,
-            },
-            zone: 'North Zone',
-            avatar: null as string | null,
-          });
-        }
-      } catch (error) {
-        console.error('Failed to load user profile:', error);
-        // Fallback to mock data on error
+  const loadUserProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Get user session from auth
+      const userSession = await getUserSession();
+      // Get user address from storage
+      const userAddress = await getUserAddress();
+      
+      if (userSession) {
         setUser({
-          id: '1',
-          name: 'Juan Dela Cruz',
-          email: 'juan.delacruz@email.com',
-          phone: '+63 912 345 6789',
-          location: {
-            fullAddress: 'Pasay City, Metro Manila',
-            city: 'Pasay City',
-            latitude: 14.5547,
-            longitude: 120.9842,
-          },
-          zone: 'North Zone',
-            avatar: null as string | null,
+          ...userSession,
+          location: userAddress || undefined,
+          zone: userAddress?.zone === 'north' ? 'North Zone' : userAddress?.zone === 'south' ? 'South Zone' : undefined,
+          avatar: null,
         });
-      } finally {
-        setLoading(false);
+      } else {
+        console.warn('No user session found');
       }
-    };
-
-    loadUserProfile();
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Reload profile when screen comes into focus (e.g., after verification)
+  useFocusEffect(
+    useCallback(() => {
+      loadUserProfile();
+    }, [loadUserProfile])
+  );
 
   const handleEditProfile = () => {
     router.push('/edit-profile');
@@ -84,10 +76,49 @@ export default function ProfileScreen() {
 
   const handlePhoneSave = async () => {
     if (phoneInput.trim()) {
-      try {
-        await updateUserProfile({ phone: phoneInput.trim() });
-        setUser(prev => prev ? { ...prev, phone: phoneInput.trim() } : null);
+      const newPhone = phoneInput.trim();
+      const oldPhone = user?.phone;
+      
+      // Check if phone number actually changed
+      if (newPhone === oldPhone) {
         setIsEditingPhone(false);
+        return;
+      }
+      
+      try {
+        // Phone number changed - require verification
+        Alert.alert(
+          'Verify New Number',
+          'Your phone number has changed. You need to verify the new number before it can be used.',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => {
+                setPhoneInput(oldPhone || '');
+                setIsEditingPhone(false);
+              },
+            },
+            {
+              text: 'Verify Now',
+              onPress: () => {
+                // Update phone and mark as unverified
+                setUser(prev => prev ? { ...prev, phone: newPhone, phoneVerified: false } : null);
+                setIsEditingPhone(false);
+                
+                // Navigate to verification screen
+                router.push({
+                  pathname: '/screens/verify-phone',
+                  params: {
+                    userId: user?.id,
+                    phone: newPhone,
+                    name: user?.name,
+                  },
+                });
+              },
+            },
+          ]
+        );
       } catch (error) {
         console.error('Failed to update phone:', error);
         Alert.alert('Error', 'Failed to update phone number. Please try again.');
@@ -113,7 +144,7 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await clearUserProfile();
+              await logoutUser();
               router.replace('/(auth)/login');
             } catch (error) {
               console.error('Failed to logout:', error);
@@ -157,14 +188,14 @@ export default function ProfileScreen() {
       id: '2',
       icon: 'shield-checkmark-outline',
       label: 'Privacy Policy',
-      onPress: () => console.log('Privacy'),
+      onPress: () => router.push('/screens/legal/privacy'),
       showChevron: true,
     },
     {
       id: '3',
       icon: 'document-outline',
       label: 'Terms & Conditions',
-      onPress: () => console.log('Terms'),
+      onPress: () => router.push('/screens/legal/terms'),
       showChevron: true,
     },
     {
@@ -231,7 +262,31 @@ export default function ProfileScreen() {
                     </View>
                   </View>
                 ) : (
-                  <Text style={styles.infoText}>{user?.phone || '+63 XXX XXX XXXX'}</Text>
+                  <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+                    <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                      <Text style={styles.infoText}>{user?.phone || '+639XXXXXXXXX'}</Text>
+                      {user?.phoneVerified ? (
+                        <Ionicons name="checkmark-circle" size={16} color="#10B981" style={{marginLeft: 8}} />
+                      ) : (
+                        <Text style={{color: '#F59E0B', fontSize: 12, marginLeft: 8, fontWeight: '600'}}>Unverified</Text>
+                      )}
+                    </View>
+                    {!user?.phoneVerified && (
+                      <TouchableOpacity 
+                        onPress={() => router.push({
+                          pathname: '/screens/verify-phone',
+                          params: {
+                            userId: user?.id,
+                            phone: user?.phone,
+                            name: user?.name,
+                          },
+                        })}
+                        style={{paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#4A90E2', borderRadius: 6}}
+                      >
+                        <Text style={{color: '#fff', fontSize: 12, fontWeight: '600'}}>Verify</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 )}
               </View>
             </View>

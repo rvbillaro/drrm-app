@@ -21,14 +21,31 @@ const LogInScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    // Navigate to home screen (tabs)
-    router.replace('/(tabs)');
+    try {
+      const { loginUser, saveUserSession } = await import('../../src/services/authService');
+
+      const credentials = {
+        email,
+        password,
+      };
+
+      const result = await loginUser(email, password);
+
+      // Save user session
+      await saveUserSession(result.user);
+
+      // Navigate to home screen (tabs)
+      router.replace('/(tabs)');
+    } catch (error) {
+      console.error('Error logging in:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to log in. Please try again.');
+    }
   };
 
   return (

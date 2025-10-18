@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { getUserSession } from '../../../src/services/authService';
 import { buttonStyles } from '../../../src/components/utils/buttonStyles';
 import { cardStyles } from '../../../src/components/utils/cardStyles';
 import { commonStyles } from '../../../src/components/utils/commonStyles';
@@ -22,21 +23,30 @@ const ReliefRequestsScreen: React.FC = () => {
   const [requests, setRequests] = useState<ReliefRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadRequests();
-  }, []);
-
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     try {
-      const fetchedRequests = await fetchReliefRequests();
-      setRequests(fetchedRequests);
+      setLoading(true);
+      // Get current user
+      const user = await getUserSession();
+      if (user) {
+        // Fetch requests for this user only
+        const fetchedRequests = await fetchReliefRequests(user.id);
+        setRequests(fetchedRequests);
+      }
     } catch (error) {
       console.error('Failed to load relief requests:', error);
       Alert.alert('Error', 'Failed to load relief requests. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Reload requests when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadRequests();
+    }, [loadRequests])
+  );
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -111,7 +121,7 @@ const ReliefRequestsScreen: React.FC = () => {
             </Text>
             <TouchableOpacity
               style={styles.requestButton}
-              onPress={() => router.push('/relief')}
+              onPress={() => router.push('/screens/relief')}
             >
               <Text style={styles.requestButtonText}>Submit a Request</Text>
             </TouchableOpacity>

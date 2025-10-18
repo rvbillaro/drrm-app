@@ -39,22 +39,6 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     phone VARCHAR(20),
     password_hash VARCHAR(255),
-    role ENUM('admin', 'user') DEFAULT 'user',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Relief centers table
-CREATE TABLE IF NOT EXISTS relief_centers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    address VARCHAR(500) NOT NULL,
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
-    capacity INT NOT NULL,
-    current_occupancy INT DEFAULT 0,
-    services JSON,
-    contact VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -84,6 +68,21 @@ CREATE TABLE IF NOT EXISTS schedules (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Relief requests table
+CREATE TABLE IF NOT EXISTS relief_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    date DATE NOT NULL,
+    zone ENUM('north', 'south') NOT NULL,
+    family_size INT NOT NULL,
+    contact VARCHAR(20) NOT NULL,
+    address TEXT NOT NULL,
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('submitted', 'under review', 'accepted', 'rejected') DEFAULT 'submitted',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- Insert sample data
 INSERT INTO alerts (type, title, message, time, location, timestamp) VALUES
 ('danger', 'Flash Flood Warning', 'Heavy rainfall expected. Residents in low-lying areas advised to evacuate immediately.', '5 mins ago', 'North Zone', DATE_SUB(NOW(), INTERVAL 5 MINUTE)),
@@ -101,8 +100,3 @@ INSERT INTO hotlines (name, number, category, description) VALUES
 ('Police', '117', 'Police', 'Law enforcement'),
 ('Medical Emergency', '143', 'Medical', 'Medical assistance'),
 ('Coast Guard', '0917-123-4567', 'Maritime', 'Maritime emergencies');
-
-INSERT INTO relief_centers (name, address, latitude, longitude, capacity, services, contact) VALUES
-('Barangay Hall A', '123 Main St, Barangay A', 14.5995, 120.9842, 500, '["Food", "Water", "Shelter"]', '0917-987-6543'),
-('Community Center B', '456 Oak Ave, Barangay B', 14.6015, 120.9862, 300, '["Medical", "Food", "Water"]', '0918-123-7890'),
-('School Gym C', '789 Pine Rd, Barangay C', 14.6035, 120.9882, 200, '["Shelter", "Water"]', '0919-456-1234');

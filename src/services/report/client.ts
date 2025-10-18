@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.8.118/api';
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const url = `${API_BASE_URL}${path}`;

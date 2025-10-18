@@ -1,7 +1,8 @@
 import { IncidentReport } from '../types';
 
 // API base URL - change this to your backend URL
-const API_BASE_URL = 'http://localhost:8000/api'; // Adjust port as needed
+// Use your computer's local IP address instead of localhost for mobile testing
+const API_BASE_URL = 'http://192.168.8.118/api';
 
 // Mock data - used as fallback when API is unavailable
 const mockReportsData: IncidentReport[] = [
@@ -95,9 +96,18 @@ export const submitIncidentReport = async (report: Omit<IncidentReport, 'id' | '
   }
 };
 
-export const fetchIncidentReports = async (limit?: number): Promise<IncidentReport[]> => {
+export const fetchIncidentReports = async (userId?: string, limit?: number): Promise<IncidentReport[]> => {
   try {
-    const url = limit ? `${API_BASE_URL}/reports.php?limit=${limit}` : `${API_BASE_URL}/reports.php`;
+    let url = `${API_BASE_URL}/reports.php`;
+    const params = new URLSearchParams();
+    
+    if (userId) params.append('user_id', userId);
+    if (limit) params.append('limit', limit.toString());
+    
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+    
     const response = await fetch(url);
 
     if (!response.ok) {

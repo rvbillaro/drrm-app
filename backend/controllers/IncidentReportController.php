@@ -1,6 +1,6 @@
 <?php
-include_once '../config/database.php';
-include_once '../models/IncidentReport.php';
+include_once __DIR__ . '/../config/database.php';
+include_once __DIR__ . '/../models/IncidentReport.php';
 
 class IncidentReportController {
     private $db;
@@ -14,28 +14,43 @@ class IncidentReportController {
 
     public function createReport() {
         $data = json_decode(file_get_contents("php://input"));
+        
+        // Log received data for debugging
+        error_log("Received report data: " . json_encode($data));
 
         if(!empty($data->incidentType) && !empty($data->description) && !empty($data->location)) {
+            $this->report->user_id = isset($data->userId) ? $data->userId : null;
             $this->report->incident_type = $data->incidentType;
             $this->report->description = $data->description;
             $this->report->location_address = $data->location->address;
             $this->report->location_lat = $data->location->latitude;
             $this->report->location_lng = $data->location->longitude;
             $this->report->media_files = isset($data->mediaFiles) ? json_encode($data->mediaFiles) : json_encode([]);
-            $this->report->timestamp = isset($data->timestamp) ? $data->timestamp : date('c');
+            // Convert ISO 8601 timestamp to MySQL datetime format
+            if (isset($data->timestamp)) {
+                $dt = new DateTime($data->timestamp);
+                $this->report->timestamp = $dt->format('Y-m-d H:i:s');
+            } else {
+                $this->report->timestamp = date('Y-m-d H:i:s');
+            }
             $this->report->status = 'pending';
+            
+            error_log("About to create report with user_id: " . ($this->report->user_id ?? 'NULL'));
 
             if($this->report->create()) {
+                error_log("Report created successfully with ID: " . $this->report->id);
                 http_response_code(201);
                 echo json_encode(array(
                     "message" => "Incident report was created.",
                     "id" => $this->report->id
                 ));
             } else {
+                error_log("Report creation FAILED");
                 http_response_code(503);
                 echo json_encode(array("message" => "Unable to create incident report."));
             }
         } else {
+            error_log("Incomplete data received");
             http_response_code(400);
             echo json_encode(array("message" => "Unable to create incident report. Data is incomplete."));
         }
@@ -43,14 +58,15 @@ class IncidentReportController {
 
     public function getReports() {
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : null;
+        $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
 
-        $stmt = $this->report->read($limit);
+        $stmt = $this->report->read($limit, $user_id);
         $num = $stmt->rowCount();
 
-        if($num > 0) {
-            $reports_arr = array();
-            $reports_arr["records"] = array();
+        $reports_arr = array();
+        $reports_arr["records"] = array();
 
+        if($num > 0) {
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 extract($row);
                 $report_item = array(
@@ -68,13 +84,10 @@ class IncidentReportController {
                 );
                 array_push($reports_arr["records"], $report_item);
             }
-
-            http_response_code(200);
-            echo json_encode($reports_arr);
-        } else {
-            http_response_code(404);
-            echo json_encode(array("message" => "No incident reports found."));
         }
+
+        http_response_code(200);
+        echo json_encode($reports_arr);
     }
 
     public function getReport($id) {

@@ -64,7 +64,9 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  emailVerified?: boolean;
   phone?: string;
+  phoneVerified?: boolean;
   location?: UserAddress;
 }
 

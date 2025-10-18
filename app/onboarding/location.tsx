@@ -118,7 +118,18 @@ export default function LocationOnboarding() {
 
     console.log('✅ Saving user address:', locationData);
     await saveUserAddress(locationData);
-    router.replace('/(tabs)');
+    
+    // Show success message
+    Alert.alert(
+      'Address Updated',
+      'Your location and zone have been updated successfully.',
+      [
+        {
+          text: 'OK',
+          onPress: () => router.replace('/(tabs)'),
+        },
+      ]
+    );
   };
 
   return (
